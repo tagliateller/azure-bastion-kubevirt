@@ -1,5 +1,15 @@
 #!/bin/bash
 
+$ oc login -u system:admin
+$ oc adm policy add-scc-to-user privileged -n kube-system -z kubevirt-privileged
+$ oc adm policy add-scc-to-user privileged -n kube-system -z kubevirt-controller
+$ oc adm policy add-scc-to-user privileged -n kube-system -z kubevirt-apiserver
+
+
+$ export VERSION=v0.11.0
+$ oc apply -f https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt.yaml
+
+
 export AWSACCESSKEYID=$1
 export AWSSECRETACCESSKEY=$2 
 
@@ -14,14 +24,6 @@ sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
 echo $(date) " - EPEL successfully installed"
 
 echo $(date) " - Install Pip"
-
-curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
-python get-pip.py
-
-echo $(date) " - Install Ansible"
-
-pip install ansible
-pip install boto
 
 echo $(date) " - Checkout Git Repo"
 
@@ -40,7 +42,6 @@ git checkout release-3.11
 #aws_secret_access_key = <Your secret acces key here>
 
 echo $(date) " - Create AWS Credentials"
-
 mkdir -p ~/.aws/
 cat > ~/.aws/credentials <<EOF
 [myaccount]
