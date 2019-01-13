@@ -292,7 +292,7 @@
 					]
 				},
 				"protectedSettings": {
-					"commandToExecute": "[concat('bash ', variables('installScriptFileName'), ' ', variables('singlequote'), parameters('awsAccessKeyId'), variables('singlequote'), ' ', variables('singlequote'), parameters('awsSecretAccessKey'), variables('singlequote'))]"
+					"commandToExecute": "[concat('bash ', variables('installScriptFileName'))]"
 				}
 			}
 		}       
