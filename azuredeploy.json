@@ -78,16 +78,7 @@
         },
         "diagnosticsStorageAccountKind": {
             "type": "string"
-        },
-		"awsUserName": {			
-			"type": "string"
-		},
-		"awsAccessKeyId": {
-			"type": "secureString"
-		},
-		"awsSecretAccessKey": {
-			"type": "secureString"
-		}
+        }
     },
     "variables": {
         "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]",
