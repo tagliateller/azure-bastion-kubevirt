@@ -187,3 +187,81 @@ NAME      AGE
 testvm    17s
 [root@originpoc-master-0 ~]#
 
+[root@originpoc-master-0 ~]# kubectl get vms -o yaml testvm
+--> OK
+
+[root@originpoc-master-0 ~]# ./virtctl start testvm
+VM testvm was scheduled to start
+[root@originpoc-master-0 ~]# kubectl get vms -o yaml testvm
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachine
+...
+spec:
+  running: true
+...
+
+[root@originpoc-master-0 ~]# kubectl get vmis -o yaml testvm
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
+metadata:
+  clusterName: ""
+  creationTimestamp: 2019-01-17T17:57:13Z
+  generateName: testvm
+  generation: 0
+  labels:
+    kubevirt.io/domain: testvm
+    kubevirt.io/size: small
+  name: testvm
+  namespace: default
+  ownerReferences:
+  - apiVersion: kubevirt.io/v1alpha2
+    blockOwnerDeletion: true
+    controller: true
+    kind: VirtualMachine
+    name: testvm
+    uid: f818ae67-1a80-11e9-bcff-000d3a1e2e15
+  resourceVersion: "22736"
+  selfLink: /apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm
+  uid: 51b3afb3-1a81-11e9-bcff-000d3a1e2e15
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+        volumeName: containervolume
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+        volumeName: cloudinitvolume
+      interfaces:
+      - bridge: {}
+        name: default
+    firmware:
+      uuid: 5a9fc181-957e-5c32-9e5a-2de5e9673531
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 64M
+  networks:
+  - name: default
+    pod: {}
+  volumes:
+  - containerDisk:
+      image: kubevirt/cirros-registry-disk-demo
+    name: containervolume
+  - cloudInitNoCloud:
+      userDataBase64: SGkuXG4=
+    name: cloudinitvolume
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: 2019-01-17T17:57:13Z
+    message: '0/8 nodes are available: 6 MatchNodeSelector, 8 Insufficient devices.kubevirt.io/tun.'
+    reason: Unschedulable
+    status: "False"
+    type: PodScheduled
+  phase: Scheduling
+[root@originpoc-master-0 ~]#
