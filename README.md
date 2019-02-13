@@ -1,5 +1,7 @@
 # azure-bastion
 
+az group deployment create -g soe --name kubevirthost --template-uri https://raw.githubusercontent.com/tagliateller/azure-bastion-kubevirt/master/azuredeploy.json --parameters @./azuredeploy.parameters.local.json --no-wait
+
 az login --service-principal -u http://changeme -p password_changeme --tenant changeme
 
 az group create --name changeme --location eastus
