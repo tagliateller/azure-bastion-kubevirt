@@ -1,0 +1,213 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - clusterconfig.yml
+    - svtconfig.yml
+    
+  tasks:
+        
+    - name: Destroy Origin Cluster
+      azure_rm_deployment:
+        state: absent
+        subscription_id: "{{ azure_subscription_id }}"
+        resource_group_name: "{{ resource_group_name }}"
+      ignore_errors: yes
+
+    - name: Create Origin Cluster
+      azure_rm_deployment:
+        state: present
+        subscription_id: "{{ azure_subscription_id }}"
+        resource_group_name: "{{ resource_group_name }}"
+        parameters:
+            _artifactsLocation:
+                value: "{{ _artifactsLocation }}"
+            imageReference:
+                value: "{{ imageReference }}"
+            masterVmSize:
+                value: "{{ masterVmSize }}"
+            infraVmSize:
+                value: "{{ infraVmSize }}"
+            nodeVmSize:
+                value: "{{ nodeVmSize }}"
+            storageKind:
+                value: "{{ storageKind }}"
+            openshiftClusterPrefix:
+                value: "{{ openshiftClusterPrefix }}"
+            masterInstanceCount:
+                value: "{{ masterInstanceCount }}"
+            infraInstanceCount:
+                value: "{{ infraInstanceCount }}"
+            nodeInstanceCount:
+                value: "{{ nodeInstanceCount }}"
+            dataDiskSize:
+                value: "{{ dataDiskSize }}"
+            adminUsername:
+                value: "{{ adminUsername }}"
+            openshiftPassword:
+                value: "{{ openshiftPassword }}"
+            enableMetrics:
+                value: "{{ enableMetrics }}"
+            enableLogging:
+                value: "{{ enableLogging }}"
+            sshPublicKey:
+                value: "{{ sshPublicKey }}"
+            keyVaultResourceGroup:
+                value: "{{ keyVaultResourceGroup }}"
+            keyVaultName:
+                value: "{{ keyVaultName }}"
+            keyVaultSecret:
+                value: "{{ keyVaultSecret }}"
+            enableAzure:
+                value: "{{ enableAzure }}"
+            aadClientId:
+                value: "{{ aadClientId }}"
+            aadClientSecret:
+                value: "{{ aadClientSecret }}"
+            defaultSubDomainType:
+                value: "{{ defaultSubDomainType }}"
+            defaultSubDomain:
+                value: "{{ defaultSubDomain }}"
+        template_link: 'https://raw.githubusercontent.com/tagliateller/openshift-origin/release-3.9/azuredeploy.json'
+      register: azure
+
+    - name: debug cluster result
+      debug:
+        msg: "{{ azure }}"
+          
+    - name: Create a resource group
+      azure_rm_resourcegroup:
+        name: "{{ svt_resource_group_name }}"
+        location: "{{ location }}"
+
+    - name: Create virtual network
+      azure_rm_virtualnetwork:
+        resource_group: "{{ svt_resource_group_name }}"
+        name: svt_vnet
+        address_prefixes: "10.0.0.0/16"
+
+    - name: Add subnet
+      azure_rm_subnet:
+        resource_group: "{{ svt_resource_group_name }}"
+        name: svt_subnet
+        address_prefix: "10.0.0.0/24"
+        virtual_network: svt_vnet
+
+    - name: Create Bastion Security Group
+      azure_rm_securitygroup:
+        resource_group: "{{ svt_resource_group_name }}"
+        name: svt-nsg
+        tags: name=svt_nsg
+        rules:
+          - name: svt-nsg-ssh
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 500
+            direction: Inbound
+            description: "SSH access from Internet"
+ 
+    - name: create public ip
+      azure_rm_publicipaddress:
+        resource_group: "{{ svt_resource_group_name }}"
+        name: svt_publicip
+        allocation_method: Dynamic
+        
+    - name: Create network interface
+      azure_rm_networkinterface:
+        name: svt-nic
+        resource_group: "{{ svt_resource_group_name }}"
+        virtual_network: svt_vnet
+        subnet_name: svt_subnet
+        security_group: svt-nsg
+        ip_configurations:
+          - name: ipconfig1
+            public_ip_address_name: svt_publicip
+            primary: True
+
+    - name: create master vm
+      azure_rm_virtualmachine:
+        resource_group: "{{ svt_resource_group_name }}"
+        name: svt-vm
+        vm_size: Standard_A1_v2
+        os_type: Linux
+        ssh_password_enabled: no
+        image:
+          offer: CentOS
+          publisher: OpenLogic
+          sku: '7.5'
+          version: latest
+        admin_username: azureuser
+        ssh_public_keys:
+          - path: /home/azureuser/.ssh/authorized_keys
+            key_data: "{{ sshPublicKey }}"
+        managed_disk_type: Standard_LRS
+        data_disks:
+          - lun: 0 # data
+            disk_size_gb: 128
+            managed_disk_type: Standard_LRS
+        network_interfaces: svt-nic
+      register: result
+
+    - name: Add new instance to host group
+      add_host:
+        hostname: "{{ item['properties']['ipConfigurations'][0]['properties']['publicIPAddress']['properties']['ipAddress'] }}"
+        groupname: svthosts
+      loop: "{{ ansible_facts.azure_vm.properties.networkProfile.networkInterfaces }}"
+ 
+- hosts: svthosts
+  user: azureuser
+     
+  tasks:
+
+    - name: Wait for SSH to come up
+      wait_for:
+        port: 22
+        timeout: 2000
+        state: started
+
+    - name: Install Packages
+      yum:
+        name:
+          - git
+          - maven
+          - python-flask
+          - python-ceph
+          - python-boto3
+        state: present
+      become: yes
+
+    - name: download oc client
+      get_url:
+        url: https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz 
+        dest: /tmp
+
+    - name: untar oc client
+      unarchive:
+        remote_src: yes
+        src: /tmp/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+        dest: /tmp/
+
+    - name: copy binary
+      copy:
+        remote_src: yes
+        src: /tmp/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc
+        dest: /usr/local/bin/
+      become: yes
+
+    - name: remove dir
+      file:
+        path: /tmp/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/
+        state: absent
+
+    - name: remove file
+      file:
+        path: /tmp/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+        state: absent
+
+    - git:
+        repo: "https://github.com/openshift/svt.git" 
+        dest: "/home/{{ ansible_user }}/openshift-svt"
+        version: master
