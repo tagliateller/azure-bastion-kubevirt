@@ -267,3 +267,70 @@ status:
     type: PodScheduled
   phase: Scheduling
 [root@originpoc-master-0 ~]#
+
+# Ansible
+
+## Mit Cluster
+
+ansible-playbook -e "with_cluster=true" kvdeploy.yml --ask-vault
+
+## Ohne Cluster
+
+ansible-playbook kvdeploy.yml --ask-vault
+
+## KubeVirt Install 
+
+ssh -> master (clusteradmin)
+
+oc adm policy add-scc-to-user privileged -n kube-system -z kubevirt-privileged
+oc adm policy add-scc-to-user privileged -n kube-system -z kubevirt-controller
+oc adm policy add-scc-to-user privileged -n kube-system -z kubevirt-apiserver
+
+# weglassen ? TODO: was passiert, wenn wir das weglassen ?
+# kubectl create configmap -n kube-system kubevirt-config --from-literal debug.useEmulation=true
+
+export VERSION=v0.15.0
+oc apply -f https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt.yaml
+
+curl -L -o virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION/virtctl-$VERSION-linux-amd64
+chmod +x virtctl
+
+### Testmaschine deployen
+
+kubectl apply -f https://raw.githubusercontent.com/kubevirt/demo/master/manifests/vm.yaml
+kubectl get vms
+kubectl get vms -o yaml testvm
+
+### Start der Maschine
+
+./virtctl start testvm
+kubectl get vms -o yaml testvm
+
+### Connect console
+
+./virtctl console testvm
+
+### Connect VNC
+
+$ ./virtctl vnc testvm
+
+# TODO
+
+## was ist mit der Emulation ? 
+
+^C[clusteradmin@originpoc-master-0 ~]$ grep -E 'svm|vmx' /proc/cpuinfo
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology eagerfpu pni pclmulqdq vmx ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch tpr_shadow vnmi ept vpid fsgsbase bmi1 hle avx2 smep bmi2 erms invpcid rtm rdseed adx smap xsaveopt
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology eagerfpu pni pclmulqdq vmx ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch tpr_shadow vnmi ept vpid fsgsbase bmi1 hle avx2 smep bmi2 erms invpcid rtm rdseed adx smap xsaveopt
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology eagerfpu pni pclmulqdq vmx ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch tpr_shadow vnmi ept vpid fsgsbase bmi1 hle avx2 smep bmi2 erms invpcid rtm rdseed adx smap xsaveopt
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology eagerfpu pni pclmulqdq vmx ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch tpr_shadow vnmi ept vpid fsgsbase bmi1 hle avx2 smep bmi2 erms invpcid rtm rdseed adx smap xsaveopt
+ --> sollte also auch ohne emulation gehen
+ --> lt. Doku ist eine 3.11 nun Pflicht - bekommen wir das hin ????
+ 
+ 
+oc adm policy add-scc-to-user privileged -z cdi-sa -n <cdi namespace>
+
+
+???
+ 
+
+
